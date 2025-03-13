@@ -1,0 +1,85 @@
+---
+- name: Configure and install Docker on Ubuntu
+  hosts: web
+  become: yes
+  tasks:
+    - name: Ensure the apt package index is up to date
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Add Docker’s official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker apt repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update the apt package index
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker-ce
+        state: present
+        update_cache: true
+
+    # - name: Install Docker Compose
+    #   get_url:
+    #     url: "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
+    #     dest: /usr/local/bin/docker-compose
+    #     mode: '0755'
+
+    - name: Install Docker Compose plugin
+      apt:
+        name: docker-compose-plugin
+        state: present
+    
+    - name: Install Python3 and pip
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Install Docker SDK for Python
+      pip:
+        name: 
+          - docker==5.0.0
+          - docker-compose==1.29.2
+        state: present
+        executable: pip3
+
+    - name: Add the ubuntu user to the docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Ensure Docker Compose v2 is installed
+      command: docker compose version
+      register: compose_version
+      failed_when: "'Docker Compose version v2' not in compose_version.stdout"
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Set Docker environment variables for Ansible
+      copy:
+        content: |
+          export DOCKER_HOST=unix:///var/run/docker.sock
+        dest: /etc/profile.d/docker_env.sh
+        mode: '0644'

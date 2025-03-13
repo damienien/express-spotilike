@@ -1,0 +1,48 @@
+---
+- import_playbook: install_docker.yml
+- name: Deploy application with Docker Compose
+  hosts: web
+  become: yes
+  tasks:
+    - name: Create project directory on remote server
+      file:
+        path: /home/ubuntu/express-spotilike
+        state: directory
+
+    - name: Copy backend files to remote server
+      synchronize:
+        src: "../backend/"
+        dest: /home/ubuntu/express-spotilike/backend/
+
+    - name: Copy frontend files to remote server
+      synchronize:
+        src: "../frontend/"
+        dest: /home/ubuntu/express-spotilike/frontend/
+        rsync_opts:
+          - "--exclude=node_modules/"
+          - "--exclude=build/"
+          - "--exclude=README.md"
+
+    - name: Copy docker-compose.yml to remote server
+      copy:
+        src: "../docker-compose.yml"
+        dest: /home/ubuntu/express-spotilike/docker-compose.yml
+
+    - name: Stop and remove existing Docker containers (if any)
+      community.docker.docker_compose_v2:
+        project_src: /home/ubuntu/express-spotilike/
+        remove_images: all
+        remove_orphans: true
+        remove_volumes: true
+        state: absent
+      ignore_errors: true
+
+    - name: Build and run Docker containers using Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: /home/ubuntu/express-spotilike/
+        build: always
+        state: present
+        pull: always
+        recreate: always
+
+    
